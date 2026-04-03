@@ -1,0 +1,278 @@
+// app.js — KidsCollab Submission Generator
+
+const SUBSECTIONS = {
+  KidsCollab:  ["Fiction", "Non-Fiction", "Poetry", "Speeches", "Persuasive", "Reports", "Science Fiction", "Diaries", "Video Game Reviews", "Write 4 Fun"],
+  KidsPerplex: ["Puzzles", "Brain Teasers", "Chrome Music Labs Music"],
+  QuizCollab:  [],
+  ColLabs:     [],
+};
+
+// Custom categories added by user per section
+const customCategories = { KidsCollab: [], KidsPerplex: [], QuizCollab: [], ColLabs: [] };
+
+// ── State ────────────────────────────────────────────────────────────────────
+const state = {
+  title:    "",
+  section:  "KidsCollab",
+  category: "Fiction",
+  authors:  [],
+  draft:    false,
+  extra:    [],
+  content:  "",
+};
+
+// ── DOM refs ─────────────────────────────────────────────────────────────────
+const titleInput    = document.getElementById("title");
+const sectionSeg    = document.getElementById("section-seg");
+const categoryChips = document.getElementById("category-chips");
+const authorInput   = document.getElementById("author-input");
+const addAuthorBtn  = document.getElementById("add-author-btn");
+const authorTagsEl  = document.getElementById("author-tags");
+const flagChips     = document.getElementById("flag-chips");
+const contentArea   = document.getElementById("content");
+const outputEl      = document.getElementById("output");
+const copyAllBtn    = document.getElementById("copy-all-btn");
+const copyFmBtn     = document.getElementById("copy-fm-btn");
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function slugify(str) {
+  // "Nathan W" → "NathanW", "Alvin C" → "AlvinC"
+  return str.trim().replace(/\s+/g, "").replace(/[^a-zA-Z0-9]/g, "");
+}
+
+function fmtDate(d) {
+  const days    = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+  const months  = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  const date    = d.getDate();
+  const suffix  = [11,12,13].includes(date % 100) ? "th"
+                : date % 10 === 1 ? "st"
+                : date % 10 === 2 ? "nd"
+                : date % 10 === 3 ? "rd" : "th";
+  const h   = d.getHours();
+  const min = String(d.getMinutes()).padStart(2, "0");
+  const sec = String(d.getSeconds()).padStart(2, "0");
+  const ampm = h >= 12 ? "pm" : "am";
+  const h12  = h % 12 || 12;
+  return `${days[d.getDay()]}, ${months[d.getMonth()]} ${date}${suffix} ${d.getFullYear()}, ${h12}:${min}:${sec} ${ampm}`;
+}
+
+// ── Category chips ────────────────────────────────────────────
+function renderCategoryChips() {
+  const builtIn = SUBSECTIONS[state.section];
+  const custom  = customCategories[state.section];
+  const all     = [...builtIn, ...custom];
+
+  // reset if current category not in combined list
+  if (all.length && !all.includes(state.category)) state.category = all[0];
+  if (!all.length) state.category = '';
+
+  categoryChips.innerHTML = all.map(cat => `
+    <button class="chip${state.category === cat ? ' active' : ''}" data-cat="${cat}">${cat}</button>
+  `).join('') + `
+    <button class="chip add-cat-btn" id="add-cat-btn" title="Add custom category">+</button>
+  `;
+
+  categoryChips.querySelectorAll('.chip:not(#add-cat-btn)').forEach(btn => {
+    btn.addEventListener('click', () => {
+      state.category = btn.dataset.cat;
+      renderCategoryChips();
+      gen();
+    });
+  });
+
+  document.getElementById('add-cat-btn').addEventListener('click', () => {
+    const name = prompt('Custom category name:');
+    if (!name || !name.trim()) return;
+    const trimmed = name.trim();
+    if (!customCategories[state.section].includes(trimmed) && !builtIn.includes(trimmed)) {
+      customCategories[state.section].push(trimmed);
+    }
+    state.category = trimmed;
+    renderCategoryChips();
+    gen();
+  });
+}
+
+// ── Section segmented control ─────────────────────────────────────────────────
+sectionSeg.querySelectorAll(".seg").forEach(btn => {
+  btn.addEventListener("click", () => {
+    sectionSeg.querySelectorAll(".seg").forEach(b => b.classList.remove("active"));
+    btn.classList.add("active");
+    state.section = btn.dataset.value;
+    renderCategoryChips();
+    gen();
+  });
+});
+
+// ── Author management ─────────────────────────────────────────────────────────
+function addAuthor() {
+  const raw  = authorInput.value.trim();
+  if (!raw) return;
+  const slug = slugify(raw);
+  if (!slug || state.authors.includes(slug)) {
+    authorInput.value = "";
+    return;
+  }
+  state.authors.push(slug);
+  authorInput.value = "";
+  renderAuthorTags();
+  gen();
+}
+
+function removeAuthor(slug) {
+  state.authors = state.authors.filter(a => a !== slug);
+  renderAuthorTags();
+  gen();
+}
+
+function renderAuthorTags() {
+  authorTagsEl.innerHTML = state.authors.map(slug => `
+    <span class="author-tag">
+      author/${slug}
+      <button class="remove" data-slug="${slug}" aria-label="Remove ${slug}">×</button>
+    </span>
+  `).join("");
+
+  authorTagsEl.querySelectorAll(".remove").forEach(btn => {
+    btn.addEventListener("click", () => removeAuthor(btn.dataset.slug));
+  });
+}
+
+addAuthorBtn.addEventListener("click", addAuthor);
+authorInput.addEventListener("keydown", e => { if (e.key === "Enter") { e.preventDefault(); addAuthor(); } });
+
+// ── Flag chips ────────────────────────────────────────────────────────────────
+flagChips.querySelectorAll(".chip").forEach(btn => {
+  btn.addEventListener("click", () => {
+    btn.classList.toggle("active");
+    if (btn.dataset.field === "draft") {
+      state.draft = btn.classList.contains("active");
+    } else {
+      const val = btn.dataset.value;
+      if (state.extra.includes(val)) {
+        state.extra = state.extra.filter(v => v !== val);
+      } else {
+        state.extra.push(val);
+      }
+    }
+    gen();
+  });
+});
+
+// ── Live inputs ───────────────────────────────────────────────────────────────
+titleInput.addEventListener("input",   () => { state.title   = titleInput.value;   gen(); });
+contentArea.addEventListener("input",  () => { state.content = contentArea.value;  gen(); });
+
+// ── Generate ──────────────────────────────────────────────────────────────────
+function buildFrontmatter() {
+  const now     = new Date();
+  const dateStr = fmtDate(now);
+  const title   = state.title.trim() || "Untitled";
+
+  const tags = [];
+  tags.push(`section/${state.section}/${state.category.replace(/\s+/g, "")}`);
+  state.authors.forEach(a => tags.push(`author/${a}`));
+  state.extra.forEach(e => tags.push(`type/${e}`));
+
+  const tagLines = tags.map(t => `  - ${t}`).join("\n");
+
+  return [
+    "---",
+    `comments: true`,
+    `title: ${title}`,
+    `draft: ${state.draft}`,
+    `tags:`,
+    tagLines,
+    `creation_date: ${dateStr}`,
+    `last_edit_date: ${dateStr}`,
+    "---",
+  ].join("\n");
+}
+
+function highlight(raw) {
+  // Very lightweight syntax colouring — split into lines and annotate spans
+  const lines = raw.split("\n");
+  return lines.map((line, i) => {
+    // fence lines
+    if (line === "---") return `<span class="fm-fence">---</span>`;
+    // tag item lines
+    if (/^\s{2}-\s/.test(line)) {
+      const tag = line.replace(/^\s{2}-\s/, "");
+      return `  <span class="fm-dash">-</span> <span class="fm-tag">${tag}</span>`;
+    }
+    // key: value lines
+    if (/^[a-z_]+:/.test(line)) {
+      const colon = line.indexOf(":");
+      const key   = line.slice(0, colon);
+      const val   = line.slice(colon + 1);
+      return `<span class="fm-key">${key}</span><span class="fm-dash">:</span><span class="fm-val">${val}</span>`;
+    }
+    // body text (after frontmatter)
+    return `<span class="body-text">${escHtml(line)}</span>`;
+  }).join("\n");
+}
+
+function escHtml(str) {
+  return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+}
+
+function gen() {
+  const fm      = buildFrontmatter();
+  const body    = state.content ? "\n\n" + state.content : "";
+  const full    = fm + body;
+
+  // highlighted version for display
+  const fmLines    = fm.split("\n");
+  const bodyLines  = (body ? body.split("\n") : []);
+  const allLines   = fmLines.concat(bodyLines);
+
+  outputEl.innerHTML = allLines.map((line, i) => {
+    if (line === "---") return `<span class="fm-fence">---</span>`;
+    if (/^\s{2}-\s/.test(line)) {
+      const tag = escHtml(line.replace(/^\s{2}-\s/, ""));
+      return `  <span class="fm-dash">-</span> <span class="fm-tag">${tag}</span>`;
+    }
+    if (/^[a-z_]+:/.test(line)) {
+      const colon = line.indexOf(":");
+      const key   = escHtml(line.slice(0, colon));
+      const val   = escHtml(line.slice(colon + 1));
+      return `<span class="fm-key">${key}</span><span class="fm-dash">:</span><span class="fm-val">${val}</span>`;
+    }
+    return `<span class="body-text">${escHtml(line)}</span>`;
+  }).join("\n");
+
+  // store plain version for copying
+  outputEl.dataset.plain = full;
+}
+
+// ── Copy buttons ──────────────────────────────────────────────────────────────
+function flashSuccess(btn, label) {
+  const orig = btn.textContent;
+  btn.textContent = "Copied!";
+  btn.classList.add("success");
+  btn.classList.remove("primary");
+  setTimeout(() => {
+    btn.textContent = label;
+    btn.classList.remove("success");
+    if (btn === copyAllBtn) btn.classList.add("primary");
+  }, 1800);
+}
+
+copyAllBtn.addEventListener("click", () => {
+  navigator.clipboard.writeText(outputEl.dataset.plain || "").then(() => {
+    flashSuccess(copyAllBtn, "Copy all");
+  });
+});
+
+copyFmBtn.addEventListener("click", () => {
+  const plain = outputEl.dataset.plain || "";
+  const end   = plain.indexOf("---", 4);
+  const fm    = end > -1 ? plain.slice(0, end + 3) : plain;
+  navigator.clipboard.writeText(fm).then(() => {
+    flashSuccess(copyFmBtn, "Copy frontmatter");
+  });
+});
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+renderCategoryChips();
+gen();
