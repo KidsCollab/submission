@@ -56,6 +56,15 @@ function fmtDate(d) {
   return `${days[d.getDay()]}, ${months[d.getMonth()]} ${date}${suffix} ${d.getFullYear()}, ${h12}:${min}:${sec} ${ampm}`;
 }
 
+// Helper to generate an ID from title
+function generateId(name) {
+  const cleaned = name
+    .replace(/\.md$/, "")   // remove extension (though not needed for title)
+    .replace(/\s+/g, "")    // remove spaces
+    .toLowerCase();         // lowercase
+  return cleaned;
+}
+
 // ── Category chips ────────────────────────────────────────────
 function renderCategoryChips() {
   const builtIn = SUBSECTIONS[state.section];
@@ -168,6 +177,7 @@ function buildFrontmatter() {
   const now     = new Date();
   const dateStr = fmtDate(now);
   const title   = state.title.trim() || "Untitled";
+  const id      = generateId(title);
 
   const tags = [];
   tags.push(`section/${state.section}/${state.category.replace(/\s+/g, "")}`);
@@ -180,6 +190,7 @@ function buildFrontmatter() {
     "---",
     `comments: true`,
     `title: ${title}`,
+    `id: ${id}`,
     `draft: ${state.draft}`,
     `tags:`,
     tagLines,
