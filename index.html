@@ -1,0 +1,339 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>KidsCollab Submission Generator</title>
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --bg: #ffffff;
+    --bg-secondary: #f5f5f3;
+    --bg-info: #e6f1fb;
+    --text: #1a1a1a;
+    --text-secondary: #6b6b68;
+    --text-tertiary: #9b9b97;
+    --text-info: #185fa5;
+    --border: rgba(0,0,0,0.12);
+    --border-secondary: rgba(0,0,0,0.22);
+    --border-info: rgba(24,95,165,0.4);
+    --border-success: rgba(15,110,86,0.4);
+    --bg-success: #e1f5ee;
+    --text-success: #0f6e56;
+    --radius-md: 8px;
+    --radius-lg: 12px;
+    --font-sans: system-ui, -apple-system, sans-serif;
+    --font-mono: ui-monospace, 'Cascadia Code', monospace;
+  }
+
+  @media (prefers-color-scheme: dark) {
+    :root {
+      --bg: #1e1e1c;
+      --bg-secondary: #2a2a28;
+      --bg-info: #042c53;
+      --text: #f0f0ee;
+      --text-secondary: #a0a09c;
+      --text-tertiary: #6b6b68;
+      --text-info: #85b7eb;
+      --border: rgba(255,255,255,0.1);
+      --border-secondary: rgba(255,255,255,0.2);
+      --border-info: rgba(133,183,235,0.35);
+      --border-success: rgba(93,202,165,0.35);
+      --bg-success: #04342c;
+      --text-success: #5dcaa5;
+    }
+  }
+
+  body {
+    font-family: var(--font-sans);
+    background: var(--bg);
+    color: var(--text);
+    padding: 2rem 1.5rem;
+    max-width: 720px;
+    margin: 0 auto;
+    line-height: 1.6;
+  }
+
+  header {
+    margin-bottom: 2rem;
+  }
+
+  header h1 {
+    font-size: 20px;
+    font-weight: 500;
+    margin-bottom: 4px;
+  }
+
+  header p {
+    font-size: 14px;
+    color: var(--text-secondary);
+  }
+
+  .wrap { display: flex; flex-direction: column; gap: 1.25rem; }
+
+  .row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 500px) { .row { grid-template-columns: 1fr; } }
+
+  .field { display: flex; flex-direction: column; gap: 6px; }
+
+  .field label {
+    font-size: 13px;
+    color: var(--text-secondary);
+  }
+
+  input, select, textarea {
+    width: 100%;
+    padding: 8px 12px;
+    font-size: 14px;
+    font-family: var(--font-sans);
+    background: var(--bg);
+    color: var(--text);
+    border: 0.5px solid var(--border-secondary);
+    border-radius: var(--radius-md);
+    outline: none;
+    transition: border-color 0.15s;
+  }
+
+  input:focus, select:focus, textarea:focus {
+    border-color: var(--border-info);
+    box-shadow: 0 0 0 3px rgba(24,95,165,0.1);
+  }
+
+  textarea {
+    min-height: 220px;
+    resize: vertical;
+    font-family: var(--font-mono);
+    font-size: 13px;
+  }
+
+  .tags-wrap { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 4px; }
+
+  .tag {
+    font-size: 12px;
+    padding: 3px 12px;
+    background: var(--bg-secondary);
+    border: 0.5px solid var(--border-secondary);
+    border-radius: 20px;
+    cursor: pointer;
+    color: var(--text-secondary);
+    user-select: none;
+    transition: background 0.1s, color 0.1s;
+  }
+
+  .tag.on {
+    background: var(--bg-info);
+    color: var(--text-info);
+    border-color: var(--border-info);
+  }
+
+  .divider { height: 0.5px; background: var(--border); }
+
+  .out-wrap {
+    background: var(--bg-secondary);
+    border-radius: var(--radius-lg);
+    border: 0.5px solid var(--border);
+    padding: 1rem 1.25rem;
+  }
+
+  .out-label {
+    font-size: 12px;
+    color: var(--text-tertiary);
+    margin-bottom: 8px;
+  }
+
+  .out-code {
+    font-family: var(--font-mono);
+    font-size: 12px;
+    color: var(--text);
+    white-space: pre-wrap;
+    word-break: break-word;
+    line-height: 1.6;
+  }
+
+  .btn-row { display: flex; gap: 8px; flex-wrap: wrap; }
+
+  .copy-btn {
+    padding: 8px 18px;
+    font-size: 14px;
+    font-family: var(--font-sans);
+    border-radius: var(--radius-md);
+    border: 0.5px solid var(--border-secondary);
+    background: var(--bg);
+    color: var(--text);
+    cursor: pointer;
+    transition: background 0.1s, transform 0.1s;
+  }
+
+  .copy-btn:hover { background: var(--bg-secondary); }
+  .copy-btn:active { transform: scale(0.98); }
+
+  .copy-btn.done {
+    background: var(--bg-success);
+    color: var(--text-success);
+    border-color: var(--border-success);
+  }
+
+  footer {
+    margin-top: 2.5rem;
+    font-size: 12px;
+    color: var(--text-tertiary);
+    text-align: center;
+  }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>KidsCollab submission generator</h1>
+  <p>Fill in the details, paste your content, then copy the result into github.dev</p>
+</header>
+
+<div class="wrap">
+  <div class="row">
+    <div class="field">
+      <label>Title</label>
+      <input type="text" id="title" placeholder="The 4th Dimension Adventure" oninput="gen()">
+    </div>
+    <div class="field">
+      <label>Author (first name + last initial)</label>
+      <input type="text" id="author" placeholder="e.g. Alvin C" oninput="gen()">
+    </div>
+  </div>
+
+  <div class="field">
+    <label>Section</label>
+    <select id="section" onchange="updateSubsections(); gen()">
+      <option value="KidsCollab">KidsCollab</option>
+      <option value="KidsPerplex">KidsPerplex</option>
+      <option value="QuizCollab">QuizCollab</option>
+      <option value="ColLabs">ColLabs</option>
+    </select>
+  </div>
+
+  <div class="field" id="subsection-field">
+    <label>Category</label>
+    <select id="subsection" onchange="gen()"></select>
+  </div>
+
+  <div class="field">
+    <label>Extra tags (click to toggle)</label>
+    <div class="tags-wrap" id="extra-tags">
+      <span class="tag" onclick="toggleTag(this)">Draft</span>
+      <span class="tag" onclick="toggleTag(this)">Featured</span>
+    </div>
+  </div>
+
+  <div class="divider"></div>
+
+  <div class="field">
+    <label>Content (paste your story/article here)</label>
+    <textarea id="content" placeholder="Paste your content here..." oninput="gen()"></textarea>
+  </div>
+
+  <div class="out-wrap">
+    <div class="out-label">Generated markdown — copy this into github.dev</div>
+    <pre class="out-code" id="output"></pre>
+  </div>
+
+  <div class="btn-row">
+    <button class="copy-btn" onclick="copyAll(this)">Copy to clipboard</button>
+    <button class="copy-btn" onclick="copyFrontmatter(this)">Copy frontmatter only</button>
+  </div>
+</div>
+
+<footer>KidsCollab · kidscollab.vercel.app</footer>
+
+<script>
+const subsections = {
+  KidsCollab: ["Fiction", "Non-Fiction", "Poetry", "Speeches", "Persuasive", "Reports", "Science Fiction", "Diaries", "Video Game Reviews", "Write 4 Fun"],
+  KidsPerplex: ["Puzzles", "Brain Teasers", "Chrome Music Labs Music"],
+  QuizCollab: ["General Knowledge", "Science", "History", "Pop Culture"],
+  ColLabs: ["Collaborative Projects", "Group Writing"]
+};
+
+function updateSubsections() {
+  const sec = document.getElementById("section").value;
+  const sub = document.getElementById("subsection");
+  sub.innerHTML = subsections[sec].map(s => `<option value="${s}">${s}</option>`).join("");
+}
+
+function fmtDate(d) {
+  const days = ["Sunday","Monday","Tuesday","Wednesday","Thursday","Friday","Saturday"];
+  const months = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  const day = days[d.getDay()];
+  const month = months[d.getMonth()];
+  const date = d.getDate();
+  const suffix = [11,12,13].includes(date) ? "th" : date % 10 === 1 ? "st" : date % 10 === 2 ? "nd" : date % 10 === 3 ? "rd" : "th";
+  const yr = d.getFullYear();
+  const h = d.getHours();
+  const m = String(d.getMinutes()).padStart(2,"0");
+  const s = String(d.getSeconds()).padStart(2,"0");
+  const ampm = h >= 12 ? "pm" : "am";
+  const h12 = h % 12 || 12;
+  return `${day}, ${month} ${date}${suffix} ${yr}, ${h12}:${m}:${s} ${ampm}`;
+}
+
+function toggleTag(el) {
+  el.classList.toggle("on");
+  gen();
+}
+
+function slugify(str) {
+  return (str || "").replace(/\s+/g,"").replace(/[^a-zA-Z0-9]/g,"");
+}
+
+function gen() {
+  const title = document.getElementById("title").value.trim() || "Untitled";
+  const author = document.getElementById("author").value.trim();
+  const section = document.getElementById("section").value;
+  const subsection = document.getElementById("subsection").value;
+  const content = document.getElementById("content").value;
+  const now = new Date();
+  const dateStr = fmtDate(now);
+
+  const authorSlug = slugify(author);
+  const tags = [`${section}/${subsection.replace(/\s+/g,"")}`];
+  if (authorSlug) tags.push(authorSlug);
+  document.querySelectorAll(".tag.on").forEach(t => tags.push(t.textContent.replace(/\s+/g,"")));
+
+  const isDraft = [...document.querySelectorAll(".tag.on")].some(t => t.textContent === "Draft");
+  const tagsStr = tags.join(", ");
+
+  const frontmatter = `---
+comments: true
+title: ${title}
+draft: ${isDraft ? "true" : "false"}
+tags: [${tagsStr}]
+creation_date: ${dateStr}
+last_edit_date: ${dateStr}
+---`;
+
+  document.getElementById("output").textContent = frontmatter + (content ? "\n\n" + content : "");
+}
+
+function copyAll(btn) {
+  const text = document.getElementById("output").textContent;
+  navigator.clipboard.writeText(text).then(() => {
+    btn.textContent = "Copied!";
+    btn.classList.add("done");
+    setTimeout(() => { btn.textContent = "Copy to clipboard"; btn.classList.remove("done"); }, 2000);
+  });
+}
+
+function copyFrontmatter(btn) {
+  const full = document.getElementById("output").textContent;
+  const end = full.indexOf("---", 4);
+  const fm = end > -1 ? full.slice(0, end + 3) : full;
+  navigator.clipboard.writeText(fm).then(() => {
+    btn.textContent = "Copied!";
+    btn.classList.add("done");
+    setTimeout(() => { btn.textContent = "Copy frontmatter only"; btn.classList.remove("done"); }, 2000);
+  });
+}
+
+updateSubsections();
+gen();
+</script>
+</body>
+</html>
