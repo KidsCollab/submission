@@ -21,6 +21,41 @@ const state = {
   content:  "",
 };
 
+// ── LocalStorage persistence ─────────────────────────────────────────────────
+const STORAGE_KEY = "kidscollab_draft";
+
+function saveDraft() {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify({ state, customCategories }));
+}
+
+function loadDraft() {
+  const saved = localStorage.getItem(STORAGE_KEY);
+  if (!saved) return false;
+  try {
+    const { state: savedState, customCategories: savedCats } = JSON.parse(saved);
+    Object.assign(state, savedState);
+    Object.assign(customCategories, savedCats);
+    return true;
+  } catch (e) {
+    console.error("Failed to load draft:", e);
+    return false;
+  }
+}
+
+function clearDraft() {
+  localStorage.removeItem(STORAGE_KEY);
+  Object.assign(state, {
+    title:    "",
+    section:  "KidsCollab",
+    category: "Fiction",
+    authors:  [],
+    draft:    false,
+    extra:    [],
+    content:  "",
+  });
+  Object.assign(customCategories, { KidsCollab: [], KidsPerplex: [], QuizCollab: [], ColLabs: [] });
+}
+
 // ── DOM refs ─────────────────────────────────────────────────────────────────
 const titleInput    = document.getElementById("title");
 const sectionSeg    = document.getElementById("section-seg");
@@ -73,15 +108,15 @@ function renderCategoryChips() {
 
   // reset if current category not in combined list
   if (all.length && !all.includes(state.category)) state.category = all[0];
-  if (!all.length) state.category = '';
-
-  categoryChips.innerHTML = all.map(cat => `
+  const catChips = document.getElementById("category-chips");
+  catChips.innerHTML = all.map(cat => `
     <button class="chip${state.category === cat ? ' active' : ''}" data-cat="${cat}">${cat}</button>
   `).join('') + `
     <button class="chip add-cat-btn" id="add-cat-btn" title="Add custom category">+</button>
   `;
 
-  categoryChips.querySelectorAll('.chip:not(#add-cat-btn)').forEach(btn => {
+  const catChips = document.getElementById("category-chips");
+  catChips.querySelectorAll('.chip:not(.add-cat-btn)').forEach(btn => {
     btn.addEventListener('click', () => {
       state.category = btn.dataset.cat;
       renderCategoryChips();
@@ -227,6 +262,22 @@ function escHtml(str) {
   return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 }
 
+function highlightLine(line) {
+  // Unified syntax highlighting for a single line
+  if (line === "---") return `<span class="fm-fence">---</span>`;
+  if (/^\s{2}-\s/.test(line)) {
+    const tag = escHtml(line.replace(/^\s{2}-\s/, ""));
+    return `  <span class="fm-dash">-</span> <span class="fm-tag">${tag}</span>`;
+  }
+  if (/^[a-z_]+:/.test(line)) {
+    const colon = line.indexOf(":");
+    const key   = escHtml(line.slice(0, colon));
+    const val   = escHtml(line.slice(colon + 1));
+    return `<span class="fm-key">${key}</span><span class="fm-dash">:</span><span class="fm-val">${val}</span>`;
+  }
+  return `<span class="body-text">${escHtml(line)}</span>`;
+}
+
 function gen() {
   const fm      = buildFrontmatter();
   const body    = state.content ? "\n\n" + state.content : "";
@@ -237,23 +288,13 @@ function gen() {
   const bodyLines  = (body ? body.split("\n") : []);
   const allLines   = fmLines.concat(bodyLines);
 
-  outputEl.innerHTML = allLines.map((line, i) => {
-    if (line === "---") return `<span class="fm-fence">---</span>`;
-    if (/^\s{2}-\s/.test(line)) {
-      const tag = escHtml(line.replace(/^\s{2}-\s/, ""));
-      return `  <span class="fm-dash">-</span> <span class="fm-tag">${tag}</span>`;
-    }
-    if (/^[a-z_]+:/.test(line)) {
-      const colon = line.indexOf(":");
-      const key   = escHtml(line.slice(0, colon));
-      const val   = escHtml(line.slice(colon + 1));
-      return `<span class="fm-key">${key}</span><span class="fm-dash">:</span><span class="fm-val">${val}</span>`;
-    }
-    return `<span class="body-text">${escHtml(line)}</span>`;
-  }).join("\n");
+  outputEl.innerHTML = allLines.map(line => highlightLine(line)).join("\n");
 
   // store plain version for copying
   outputEl.dataset.plain = full;
+
+  // Save draft to LocalStorage
+  saveDraft();
 }
 
 // ── Copy buttons ──────────────────────────────────────────────────────────────
@@ -269,21 +310,89 @@ function flashSuccess(btn, label) {
   }, 1800);
 }
 
+function flashError(btn, label) {
+  btn.textContent = "Failed";
+  btn.classList.add("error");
+  setTimeout(() => {
+    btn.textContent = label;
+    btn.classList.remove("error");
+    if (btn === copyAllBtn) btn.classList.add("primary");
+  }, 1800);
+}
+
 copyAllBtn.addEventListener("click", () => {
+  if (!navigator.clipboard) {
+    flashError(copyAllBtn, "Copy all");
+    return;
+  }
   navigator.clipboard.writeText(outputEl.dataset.plain || "").then(() => {
     flashSuccess(copyAllBtn, "Copy all");
+  }).catch(err => {
+    console.error("Clipboard error:", err);
+    flashError(copyAllBtn, "Copy all");
   });
 });
 
 copyFmBtn.addEventListener("click", () => {
+  if (!navigator.clipboard) {
+    flashError(copyFmBtn, "Copy frontmatter");
+    return;
+  }
   const plain = outputEl.dataset.plain || "";
   const end   = plain.indexOf("---", 4);
   const fm    = end > -1 ? plain.slice(0, end + 3) : plain;
   navigator.clipboard.writeText(fm).then(() => {
     flashSuccess(copyFmBtn, "Copy frontmatter");
+  }).catch(err => {
+    console.error("Clipboard error:", err);
+    flashError(copyFmBtn, "Copy frontmatter");
   });
 });
 
+// ── Keyboard shortcuts ─────────────────────────────────────────────────────────
+document.addEventListener("keydown", (e) => {
+  // Ctrl/Cmd + Enter to copy all
+  if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+    e.preventDefault();
+    copyAllBtn.click();
+  }
+  // Escape to clear form
+  if (e.key === "Escape") {
+    if (confirm("Clear all data and start fresh?")) {
+      clearDraft();
+      titleInput.value = "";
+      contentArea.value = "";
+      authorTagsEl.innerHTML = "";
+      flagChips.querySelectorAll(".chip").forEach(c => c.classList.remove("active"));
+      renderCategoryChips();
+      gen();
+    }
+  }
+});
+
 // ── Init ──────────────────────────────────────────────────────────────────────
+if (loadDraft()) {
+  // Restore form fields from saved state
+  titleInput.value = state.title;
+  contentArea.value = state.content;
+  
+  // Restore section selection
+  sectionSeg.querySelectorAll(".seg").forEach(btn => {
+    btn.classList.toggle("active", btn.dataset.value === state.section);
+  });
+  
+  // Restore author tags
+  renderAuthorTags();
+  
+  // Restore draft flag
+  flagChips.querySelectorAll(".chip").forEach(btn => {
+    if (btn.dataset.field === "draft") {
+      btn.classList.toggle("active", state.draft);
+    } else if (state.extra.includes(btn.dataset.value)) {
+      btn.classList.add("active");
+    }
+  });
+}
+
 renderCategoryChips();
 gen();

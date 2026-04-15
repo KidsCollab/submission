@@ -402,6 +402,20 @@ textarea {
   border-color: var(--success);
 }
 
+.action-btn.error {
+  background: #fde5e5;
+  color: #c0392b;
+  border-color: #c0392b;
+}
+
+@media (prefers-color-scheme: dark) {
+  .action-btn.error {
+    background: #3d1110;
+    color: #ff6b5b;
+    border-color: #ff6b5b;
+  }
+}
+
 .output-box {
   background: var(--paper);
   padding: 1rem 1.25rem;
