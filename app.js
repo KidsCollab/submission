@@ -235,29 +235,6 @@ function buildFrontmatter() {
   ].join("\n");
 }
 
-function highlight(raw) {
-  // Very lightweight syntax colouring — split into lines and annotate spans
-  const lines = raw.split("\n");
-  return lines.map((line, i) => {
-    // fence lines
-    if (line === "---") return `<span class="fm-fence">---</span>`;
-    // tag item lines
-    if (/^\s{2}-\s/.test(line)) {
-      const tag = line.replace(/^\s{2}-\s/, "");
-      return `  <span class="fm-dash">-</span> <span class="fm-tag">${tag}</span>`;
-    }
-    // key: value lines
-    if (/^[a-z_]+:/.test(line)) {
-      const colon = line.indexOf(":");
-      const key   = line.slice(0, colon);
-      const val   = line.slice(colon + 1);
-      return `<span class="fm-key">${key}</span><span class="fm-dash">:</span><span class="fm-val">${val}</span>`;
-    }
-    // body text (after frontmatter)
-    return `<span class="body-text">${escHtml(line)}</span>`;
-  }).join("\n");
-}
-
 function escHtml(str) {
   return str.replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
 }
