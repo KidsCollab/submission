@@ -108,6 +108,8 @@ function renderCategoryChips() {
 
   // reset if current category not in combined list
   if (all.length && !all.includes(state.category)) state.category = all[0];
+  if (!all.length) state.category = '';
+
   const catChips = document.getElementById("category-chips");
   catChips.innerHTML = all.map(cat => `
     <button class="chip${state.category === cat ? ' active' : ''}" data-cat="${cat}">${cat}</button>
@@ -115,7 +117,6 @@ function renderCategoryChips() {
     <button class="chip add-cat-btn" id="add-cat-btn" title="Add custom category">+</button>
   `;
 
-  const catChips = document.getElementById("category-chips");
   catChips.querySelectorAll('.chip:not(.add-cat-btn)').forEach(btn => {
     btn.addEventListener('click', () => {
       state.category = btn.dataset.cat;
